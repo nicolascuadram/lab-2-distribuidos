@@ -20,16 +20,16 @@ class SumaParcial extends Thread {
                 sumaLocal += matriz[i][j];
             }
         }
-        System.out.println("Hilo " + Thread.currentThread().getName() + " suma parcial: " + sumaLocal);
-        resultado.agregarSuma(sumaLocal);
+        resultado.agregarSuma(sumaLocal, Thread.currentThread().getName());
     }
 }
 
 class ResultadoCompartido {
     private long sumaTotal = 0;
 
-    public synchronized void agregarSuma(long valor) {
+    public synchronized void agregarSuma(long valor, String hilo) {
         sumaTotal += valor;
+        System.out.println("Hilo: " + hilo + " - Suma Parcial: " + valor + " - Suma Total: " + sumaTotal);
     }
 
     public long getSumaTotal() {
@@ -68,6 +68,7 @@ public class SumaMatrizConcurrente {
         long finSec = System.currentTimeMillis();
         System.out.println("Suma secuencial: " + resultadoSecuencial);
         System.out.println("Tiempo secuencial: " + (finSec - inicioSec) + " ms");
+        System.out.println("");
 
         // --- Suma Concurrente ---
         ResultadoCompartido resultado = new ResultadoCompartido();
@@ -97,6 +98,7 @@ public class SumaMatrizConcurrente {
 
         long finConc = System.currentTimeMillis();
 
+        System.out.println("");
         System.out.println("Suma concurrente: " + resultado.getSumaTotal());
         System.out.println("Tiempo concurrente: " + (finConc - inicioConc) + " ms");
     }
