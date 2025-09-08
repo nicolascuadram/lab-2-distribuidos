@@ -1,4 +1,4 @@
-package Problema1;
+package problema_1;
 
 class SumaParcial extends Thread {
     private int[][] matriz;

@@ -1,4 +1,4 @@
-package Problema1;
+package problema_1;
 
 class ResultadoCompartido {
     private long sumaTotal = 0;

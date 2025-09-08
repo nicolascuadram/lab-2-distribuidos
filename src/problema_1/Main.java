@@ -1,4 +1,4 @@
-package Problema1;
+package problema_1;
 
 public class Main{
     public static long sumaSecuencial(int[][] matriz) {
