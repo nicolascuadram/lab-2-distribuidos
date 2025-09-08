@@ -1,3 +1,6 @@
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
 
@@ -10,6 +13,7 @@ public class RelayRace {
 
     // Compartimos las posiciones finales para imprimir al final
     static final int[] finalPositions = new int[TOTAL_COMPETITORS];
+    static final List<Integer> resultadosEquipos = Collections.synchronizedList(new ArrayList<>());
 
     static class Competitor implements Runnable {
         private final int id;           // identificador 1..20
@@ -66,6 +70,7 @@ public class RelayRace {
                                 id, lane + 1, position);
                     }
                     finalPositions[id - 1] = position;
+                    resultadosEquipos.add(lane + 1); // registrar qué pista llegó
                 }
 
             } catch (InterruptedException e) {
@@ -98,12 +103,13 @@ public class RelayRace {
         for (int lane = 0; lane < LANES; lane++) {
             for (int idx = 0; idx < COMPETITORS_PER_LANE; idx++) {
                 int startPos = idx * 100;
-                int target;
+                int target = (idx < COMPETITORS_PER_LANE - 1) ? (idx + 1) * 100 : TRACK_LENGTH;
+                /* int target;
                 if (idx < COMPETITORS_PER_LANE - 1) {
                     target = (idx + 1) * 100; // entregar en la posición del siguiente compañero
                 } else {
                     target = TRACK_LENGTH; // último corre hasta la meta (400)
-                }
+                } */
 
                 Semaphore my = sems[idCounter - 1];
                 Semaphore next = (idx < COMPETITORS_PER_LANE - 1) ? sems[idCounter] : null;
@@ -129,7 +135,7 @@ public class RelayRace {
         for (Thread t : threads) t.join();
 
         // Imprimir posiciones finales por pista (cada equipo)
-        System.out.println("\nPosiciones finales de cada competidor (por pista):");
+        /* System.out.println("\nPosiciones finales de cada competidor (por pista):");
         idCounter = 1;
         for (int lane = 0; lane < LANES; lane++) {
             System.out.printf("Pista %d: ", lane + 1);
@@ -138,6 +144,13 @@ public class RelayRace {
                 idCounter++;
             }
             System.out.println();
+        } */
+
+        // Ranking de equipos
+        System.out.println("\nResultados finales de la carrera:");
+        for (int i = 0; i < resultadosEquipos.size(); i++) {
+            int pista = resultadosEquipos.get(i);
+            System.out.printf("%d° lugar: Equipo de la pista %d%n", i + 1, pista);
         }
 
         System.out.println("\nCarrera finalizada.");
