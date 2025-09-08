@@ -6,33 +6,33 @@ import java.util.concurrent.Semaphore;
 
 public class RelayRace {
 
-    static final int TRACK_LENGTH = 400;
-    static final int LANES = 5;
-    static final int COMPETITORS_PER_LANE = 4; // 20 competitors total
-    static final int TOTAL_COMPETITORS = LANES * COMPETITORS_PER_LANE;
+    static final int largoPista = 400;
+    static final int pistas = 5;
+    static final int corredoresPorPistas = 4; // 20 competitors total
+    static final int totalCorredores = pistas * corredoresPorPistas;
 
     // Compartimos las posiciones finales para imprimir al final
-    static final int[] finalPositions = new int[TOTAL_COMPETITORS];
+    static final int[] posicionesFinales = new int[totalCorredores];
     static final List<Integer> resultadosEquipos = Collections.synchronizedList(new ArrayList<>());
 
-    static class Competitor implements Runnable {
+    static class Competidor implements Runnable {
         private final int id;           // identificador 1..20
-        private final int lane;         // 0..4
-        private final int indexInLane;  // 0..3 (0 es el que parte con el testigo)
-        private int position;           // posición actual
+        private final int pista;         // 0..4
+        private final int indexTestigo;  // 0..3 (0 es el que parte con el testigo)
+        private int posicion;           // posición actual
         private final int target;       // posición objetivo a la que corre (siguiente compañero o meta)
-        private final Semaphore myTurn; // semáforo propio: permiso para correr
-        private final Semaphore nextTurn; // semáforo del siguiente competidor (null si es el último)
+        private final Semaphore miTurno; // semáforo propio: permiso para correr
+        private final Semaphore siguienteTurno; // semáforo del siguiente competidor (null si es el último)
         private final Random rnd;
 
-        public Competitor(int id, int lane, int indexInLane, int startPos, int target, Semaphore myTurn, Semaphore nextTurn) {
+        public Competidor(int id, int pista, int indexTestigo, int startPos, int target, Semaphore miTurno, Semaphore siguienteTurno) {
             this.id = id;
-            this.lane = lane;
-            this.indexInLane = indexInLane;
-            this.position = startPos;
+            this.pista = pista;
+            this.indexTestigo = indexTestigo;
+            this.posicion = startPos;
             this.target = target;
-            this.myTurn = myTurn;
-            this.nextTurn = nextTurn;
+            this.miTurno = miTurno;
+            this.siguienteTurno= siguienteTurno;
             this.rnd = new Random(System.nanoTime() + id);
         }
 
@@ -40,37 +40,37 @@ public class RelayRace {
         public void run() {
             try {
                 // Espera hasta que tenga el testigo
-                myTurn.acquire();
+                miTurno.acquire();
 
                 // Mientras no alcance su objetivo (siguiente relevo o meta)
-                while (position < target) {
-                    int step = rnd.nextInt(2) + 1; // 1 o 2
-                    position += step;
-                    if (position > target) position = target;
+                while (posicion < target) {
+                    int paso = rnd.nextInt(2) + 1; // 1 o 2
+                    posicion += paso;
+                    if (posicion > target) posicion = target;
 
                     // pequeño retardo para que las salidas sean legibles (opcional)
                     try { Thread.sleep(10); } catch (InterruptedException ignored) {}
                 }
 
                 // Llegó al objetivo -> entregar testigo o terminar si fue el último
-                if (nextTurn != null) {
+                if (miTurno != null) {
                     // Imprimir entrega de testigo
                     synchronized (System.out) {
                         System.out.printf("Competidor %d (pista %d) entrega testigo a Competidor %d (pista %d)%n",
-                                id, lane + 1, id + 1, lane + 1);
+                                id, pista + 1, id + 1, pista+ 1);
                     }
                     // registrar su posición final
-                    finalPositions[id - 1] = position;
+                    posicionesFinales[id - 1] = posicion;
                     // liberar al siguiente para que comience
-                    nextTurn.release();
+                    siguienteTurno.release();
                 } else {
                     // Este era el último competidor de la pista -> cruzó la meta
                     synchronized (System.out) {
                         System.out.printf("Competidor %d (pista %d) cruzó la meta en posición %d%n",
-                                id, lane + 1, position);
+                                id, pista + 1, posicion);
                     }
-                    finalPositions[id - 1] = position;
-                    resultadosEquipos.add(lane + 1); // registrar qué pista llegó
+                    posicionesFinales[id - 1] = posicion;
+                    resultadosEquipos.add(pista + 1); // registrar qué pista llegó
                 }
 
             } catch (InterruptedException e) {
@@ -81,43 +81,43 @@ public class RelayRace {
 
     public static void main(String[] args) throws InterruptedException {
         // Crear semáforos: uno por competidor
-        Semaphore[] sems = new Semaphore[TOTAL_COMPETITORS];
-        for (int i = 0; i < TOTAL_COMPETITORS; i++) sems[i] = new Semaphore(0);
+        Semaphore[] sems = new Semaphore[totalCorredores];
+        for (int i = 0; i < totalCorredores; i++) sems[i] = new Semaphore(0);
 
-        Thread[] threads = new Thread[TOTAL_COMPETITORS];
+        Thread[] threads = new Thread[totalCorredores];
 
         // Asignaciones iniciales (posiciones): para cada pista, competidores en 0,100,200,300
         System.out.println("Asignaciones iniciales:");
-        int idCounter = 1;
-        for (int lane = 0; lane < LANES; lane++) {
-            for (int idx = 0; idx < COMPETITORS_PER_LANE; idx++) {
+        int idContador = 1;
+        for (int pista = 0; pista < pistas; pista++) {
+            for (int idx = 0; idx < corredoresPorPistas; idx++) {
                 int startPos = idx * 100; // 0,100,200,300
-                System.out.printf("Competidor %d -> pista %d, posición inicial %d%n", idCounter, lane + 1, startPos);
-                idCounter++;
+                System.out.printf("Competidor %d -> pista %d, posición inicial %d%n", idContador, pista + 1, startPos);
+                idContador++;
             }
         }
         System.out.println();
 
         // Crear hilos/competidores y determinamos sus targets (siguiente relevo o meta)
-        idCounter = 1;
-        for (int lane = 0; lane < LANES; lane++) {
-            for (int idx = 0; idx < COMPETITORS_PER_LANE; idx++) {
+        idContador = 1;
+        for (int pista = 0; pista < pistas; pista++) {
+            for (int idx = 0; idx < corredoresPorPistas; idx++) {
                 int startPos = idx * 100;
-                int target = (idx < COMPETITORS_PER_LANE - 1) ? (idx + 1) * 100 : TRACK_LENGTH;
+                int target = (idx < corredoresPorPistas - 1) ? (idx + 1) * 100 : largoPista;
                 /* int target;
-                if (idx < COMPETITORS_PER_LANE - 1) {
+                if (idx < corredoresPorPistas - 1) {
                     target = (idx + 1) * 100; // entregar en la posición del siguiente compañero
                 } else {
-                    target = TRACK_LENGTH; // último corre hasta la meta (400)
+                    target = largoPista; // último corre hasta la meta (400)
                 } */
 
-                Semaphore my = sems[idCounter - 1];
-                Semaphore next = (idx < COMPETITORS_PER_LANE - 1) ? sems[idCounter] : null;
+                Semaphore actual = sems[idContador - 1];
+                Semaphore next = (idx < corredoresPorPistas - 1) ? sems[idContador] : null;
 
-                Competitor c = new Competitor(idCounter, lane, idx, startPos, target, my, next);
-                Thread t = new Thread(c, "C" + idCounter);
-                threads[idCounter - 1] = t;
-                idCounter++;
+                Competidor c = new Competidor(idContador, pista, idx, startPos, target, actual, next);
+                Thread t = new Thread(c, "C" + idContador);
+                threads[idContador - 1] = t;
+                idContador++;
             }
         }
 
@@ -126,8 +126,8 @@ public class RelayRace {
 
         // Dar testigo a los competidores en posición 0 (idx == 0 de cada pista)
         // Sus IDs: 1, 1+4, 1+8, 1+12, 1+16 => equivalen a 1,5,9,13,17
-        for (int lane = 0; lane < LANES; lane++) {
-            int starterId = lane * COMPETITORS_PER_LANE + 1;
+        for (int pista = 0; pista< pistas; pista++) {
+            int starterId = pista * corredoresPorPistas + 1;
             sems[starterId - 1].release(); // liberamos a los de inicio
         }
 
@@ -137,9 +137,9 @@ public class RelayRace {
         // Imprimir posiciones finales por pista (cada equipo)
         /* System.out.println("\nPosiciones finales de cada competidor (por pista):");
         idCounter = 1;
-        for (int lane = 0; lane < LANES; lane++) {
-            System.out.printf("Pista %d: ", lane + 1);
-            for (int idx = 0; idx < COMPETITORS_PER_LANE; idx++) {
+        for (int pista = 0; pista< pistas; pista++) {
+            System.out.printf("Pista %d: ", pista + 1);
+            for (int idx = 0; idx < corredoresPorPistas; idx++) {
                 System.out.printf("C%d=%d  ", idCounter, finalPositions[idCounter - 1]);
                 idCounter++;
             }
